@@ -1,7 +1,5 @@
 package com.darpan.databaseAiAgent.config;
 
-import com.darpan.databaseAiAgent.llm.AgentProxy;
-import com.darpan.databaseAiAgent.llm.AiProxyFactory;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -34,18 +32,11 @@ public class MemoryConfig {
     public ChatLanguageModel chatLanguageModel() {
         String apiKey = Optional.ofNullable(openAiApiKey)
                 .filter(key -> !key.isEmpty())
-                .or(() -> Optional.ofNullable(System.getenv("OPENAI_API_KEY")))
                 .orElseThrow(() -> new IllegalStateException("OpenAI API key not found. Please set 'langchain4j.openai.api-key' in application.properties or 'OPENAI_API_KEY' environment variable."));
 
         return OpenAiChatModel.builder()
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .build();
-    }
-
-    @Bean
-    @SessionScope
-    public AgentProxy agentProxy(ChatLanguageModel model, ChatMemory sessionChatMemory, AiProxyFactory factory) {
-        return factory.buildProxy(model, sessionChatMemory);
     }
 }

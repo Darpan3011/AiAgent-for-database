@@ -9,6 +9,8 @@ import com.darpan.databaseAiAgent.schema.JdbcSchemaLoader;
 import com.darpan.databaseAiAgent.sql.JsqlparserSqlValidator;
 import com.darpan.databaseAiAgent.sql.LlmSqlGenerator;
 import com.darpan.databaseAiAgent.sql.SafeJdbcExecutor;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.SessionScope;
@@ -43,26 +45,27 @@ public class SessionAgentService {
     }
 
     /**
-     * Main entry: caller (controller) only provides the question. The session's AiServices proxy
-     * will automatically append user and assistant messages into the session ChatMemory.
+     * Main entry: caller provides the question. We persist both the user question and assistant answer
+     * into the session ChatMemory so that old context is available for subsequent turns.
      */
     public AgentResponse ask(String question) {
+        // Add current user turn to memory first
+        chatMemory.add(UserMessage.from(question));
+
         // Load schema
         DbSchema schema = schemaLoader.loadSchema();
 
-        // Build textual context for the SQL prompt from chatMemory.messages() if needed
-        List<String> ctx = chatMemory.messages().stream()
-                .map(m -> m.type() + ": " + m.text())
-                .collect(Collectors.toList());
+        // Build textual context for the SQL prompt from chatMemory.messages()
+        List<String> ctx = serializeMessages();
 
-        // Generate SQL by calling the agent proxy (AiServices will append user message and assistant reply)
+        // Generate SQL
         String sql = sqlGenerator.generateSql(question, schema, ctx);
 
         // Validate
         ValidationResult vr = sqlValidator.validate(sql, schema);
-        if (!vr.ok()) {
-            // Note: AiServices already stored user/assistant messages at the time of generation
-            return AgentResponse.error(vr.message());
+        if (!vr.isOk()) {
+            chatMemory.add(AiMessage.from("Validation failed: " + vr.getMessage()));
+            return AgentResponse.error(vr.getMessage());
         }
 
         // Execute
@@ -71,16 +74,22 @@ public class SessionAgentService {
         // Format natural-language answer
         String answer = resultFormatter.format(question, sql, rows);
 
+        // Persist assistant answer
+        chatMemory.add(AiMessage.from(answer));
+
         // Return structured response
         return AgentResponse.ok(answer, sql, rows);
     }
 
-    public List<Map<String, String>> getChatHistory() {
+    // Exact serialization used for LLM context
+    private List<String> serializeMessages() {
         return chatMemory.messages().stream()
-                .map(message -> Map.of(
-                        "role", message.type().name(),
-                        "content", message.text()
-                ))
+                .map(m -> m.type() + ": " + m.text())
                 .collect(Collectors.toList());
+    }
+
+    // Expose the exact same lines used for the LLM context
+    public List<String> getChatHistory() {
+        return serializeMessages();
     }
 }

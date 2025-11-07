@@ -18,7 +18,7 @@ public class JdbcSchemaLoader {
     private final String databaseName;
 
     public JdbcSchemaLoader(DataSource dataSource,
-                           @Value("${spring.datasource.name:}") String databaseName) {
+                            @Value("${spring.datasource.name:}") String databaseName) {
         this.dataSource = dataSource;
         this.databaseName = databaseName;
     }
@@ -26,12 +26,12 @@ public class JdbcSchemaLoader {
     public DbSchema loadSchema() {
         try (Connection conn = dataSource.getConnection()) {
             DatabaseMetaData md = conn.getMetaData();
-            
+
             // If database name is not specified, use the current catalog
-            String catalog = databaseName != null && !databaseName.isEmpty() 
-                ? databaseName 
-                : conn.getCatalog();
-                
+            String catalog = databaseName != null && !databaseName.isEmpty()
+                    ? databaseName
+                    : conn.getCatalog();
+
             try ( ResultSet tablesRs = md.getTables(catalog, null, "%", new String[]{"TABLE", "VIEW"})) {
                 List<TableSchema> tables = new ArrayList<>();
                 while (tablesRs.next()) {

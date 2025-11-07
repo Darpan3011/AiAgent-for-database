@@ -1,12 +1,11 @@
 package com.darpan.databaseAiAgent.controller;
 
-import com.darpan.databaseAiAgent.service.SessionAgentService;
 import com.darpan.databaseAiAgent.api.AgentResponse;
+import com.darpan.databaseAiAgent.service.SessionAgentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,13 +22,16 @@ public class AiDbController {
     @PostMapping("/ask")
     public ResponseEntity<?> ask(@RequestBody String question) {
         AgentResponse resp = agentService.ask(question);
-        if (!resp.success()) return ResponseEntity.badRequest().body(java.util.Map.of("error", resp.error()));
-        return ResponseEntity.ok(java.util.Map.of("answer", resp.answer(), "sql", resp.sql(), "rows", resp.rows()));
+        if (!resp.isOk()) return ResponseEntity.badRequest().body(Map.of("error", resp.getError()));
+        return ResponseEntity.ok(Map.of(
+                "answer", resp.getAnswer(),
+                "sql", resp.getSql(),
+                "rows", resp.getRows()
+        ));
     }
 
     @GetMapping("/context")
     public ResponseEntity<?> getContext() {
-        List<Map<String, String>> chatHistory = agentService.getChatHistory();
-        return ResponseEntity.ok(Map.of("messages", chatHistory));
+        return ResponseEntity.ok(Map.of("messages", agentService.getChatHistory()));
     }
 }

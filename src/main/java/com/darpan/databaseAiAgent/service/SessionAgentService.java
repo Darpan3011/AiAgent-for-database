@@ -49,14 +49,14 @@ public class SessionAgentService {
      * into the session ChatMemory so that old context is available for subsequent turns.
      */
     public AgentResponse ask(String question) {
-        // Add current user turn to memory first
-        chatMemory.add(UserMessage.from(question));
-
         // Load schema
         DbSchema schema = schemaLoader.loadSchema();
 
         // Build textual context for the SQL prompt from chatMemory.messages()
         List<String> ctx = serializeMessages();
+
+        // Add current user turn to memory
+        chatMemory.add(UserMessage.from(question));
 
         // Generate SQL
         String sql = sqlGenerator.generateSql(question, schema, ctx);

@@ -61,6 +61,17 @@ public class LlmSqlGenerator {
         String cols = t.columns().stream()
                 .map(c -> c.name() + " " + c.type())
                 .collect(Collectors.joining(", "));
-        return "- " + t.name() + "(" + cols + ")";
+        StringBuilder sb = new StringBuilder();
+        sb.append("- ").append(t.name()).append("(").append(cols).append(")");
+        if (t.primaryKeys() != null && !t.primaryKeys().isEmpty()) {
+            sb.append("\n  PK(").append(String.join(", ", t.primaryKeys())).append(")");
+        }
+        if (t.foreignKeys() != null && !t.foreignKeys().isEmpty()) {
+            String fkText = t.foreignKeys().stream()
+                    .map(f -> f.fromColumn() + " -> " + f.toTable() + "." + f.toColumn())
+                    .collect(Collectors.joining(", "));
+            sb.append("\n  FK(").append(fkText).append(")");
+        }
+        return sb.toString();
     }
 }

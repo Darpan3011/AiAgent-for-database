@@ -3,6 +3,7 @@ package com.darpan.databaseAiAgent.schema;
 import com.darpan.databaseAiAgent.api.DbSchema;
 import com.darpan.databaseAiAgent.api.TableSchema;
 import com.darpan.databaseAiAgent.api.ColumnSchema;
+import com.darpan.databaseAiAgent.api.ForeignKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -58,7 +59,30 @@ public class JdbcSchemaLoader {
                             columns.add(new ColumnSchema(columnName, cols.getString("TYPE_NAME")));
                         }
                     }
-                    tables.add(new TableSchema(tableName, columns));
+                    // Primary keys
+                    List<String> pks = new ArrayList<>();
+                    try ( ResultSet pkRs = md.getPrimaryKeys(catalog, null, tableName)) {
+                        while (pkRs.next()) {
+                            String pkCol = pkRs.getString("COLUMN_NAME");
+                            if (!shouldSkipColumn(tableName, pkCol)) {
+                                pks.add(pkCol);
+                            }
+                        }
+                    }
+                    // Foreign keys (imported)
+                    List<ForeignKey> fks = new ArrayList<>();
+                    try ( ResultSet fkRs = md.getImportedKeys(catalog, null, tableName)) {
+                        while (fkRs.next()) {
+                            String fkCol = fkRs.getString("FKCOLUMN_NAME");
+                            String pkTable = fkRs.getString("PKTABLE_NAME");
+                            String pkCol = fkRs.getString("PKCOLUMN_NAME");
+                            if (!shouldSkipColumn(tableName, fkCol) && !shouldSkipTable(pkTable)) {
+                                fks.add(new ForeignKey(fkCol, pkTable, pkCol));
+                            }
+                        }
+                    }
+
+                    tables.add(new TableSchema(tableName, columns, pks, fks));
                 }
                 return new DbSchema(tables);
             }

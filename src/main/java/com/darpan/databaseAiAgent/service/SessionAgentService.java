@@ -9,14 +9,11 @@ import com.darpan.databaseAiAgent.schema.JdbcSchemaLoader;
 import com.darpan.databaseAiAgent.sql.JsqlparserSqlValidator;
 import com.darpan.databaseAiAgent.sql.LlmSqlGenerator;
 import com.darpan.databaseAiAgent.sql.SafeJdbcExecutor;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.SessionScope;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
@@ -52,19 +49,12 @@ public class SessionAgentService {
         // Load schema
         DbSchema schema = schemaLoader.loadSchema();
 
-        // Build textual context for the SQL prompt from chatMemory.messages()
-        List<String> ctx = serializeMessages();
-
-        // Add current user turn to memory
-        chatMemory.add(UserMessage.from(question));
-
         // Generate SQL
-        String sql = sqlGenerator.generateSql(question, schema, ctx);
+        String sql = sqlGenerator.generateSql(question, schema);
 
         // Validate
         ValidationResult vr = sqlValidator.validate(sql, schema);
         if (!vr.isOk()) {
-            chatMemory.add(AiMessage.from("Validation failed: " + vr.getMessage()));
             return AgentResponse.error(vr.getMessage());
         }
 
@@ -73,9 +63,6 @@ public class SessionAgentService {
 
         // Format natural-language answer
         String answer = resultFormatter.format(question, sql, rows);
-
-        // Persist assistant answer
-        chatMemory.add(AiMessage.from(answer));
 
         // Return structured response
         return AgentResponse.ok(answer, sql, rows);

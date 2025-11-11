@@ -2,14 +2,11 @@ package com.darpan.databaseAiAgent.sql;
 
 import com.darpan.databaseAiAgent.api.DbSchema;
 import com.darpan.databaseAiAgent.api.TableSchema;
-import com.darpan.databaseAiAgent.prompt.PromptLoader;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import com.darpan.databaseAiAgent.llm.SqlAssistant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.SessionScope;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
@@ -17,20 +14,18 @@ import java.util.stream.Collectors;
 @Slf4j
 public class LlmSqlGenerator {
 
-    private final ChatLanguageModel model;
-    private final ChatMemory chatMemory;
-    private final PromptLoader promptLoader;
+    private final SqlAssistant assistant;
 
-    public LlmSqlGenerator(ChatLanguageModel model, ChatMemory chatMemory, PromptLoader promptLoader) {
-        this.model = model;
-        this.chatMemory = chatMemory;
-        this.promptLoader = promptLoader;
+    public LlmSqlGenerator(SqlAssistant assistant) {
+        this.assistant = assistant;
     }
 
-    public String generateSql(String question, DbSchema schema, List<String> chatContext) {
-        String prompt = renderPrompt(question, schema, chatContext);
+    public String generateSql(String question, DbSchema schema) {
+        String schemaText = schema.tables().stream()
+                .map(this::formatTable)
+                .collect(Collectors.joining("\n"));
 
-        String sql = model.generate(prompt).trim();
+        String sql = assistant.answer(schemaText, question).trim();
         if (sql.startsWith("```")) {
             sql = sql.replaceAll("```[a-zA-Z]*", "").replace("```", "").trim();
         }
@@ -38,23 +33,6 @@ public class LlmSqlGenerator {
             sql = sql.substring(0, sql.length() - 1).trim();
         }
         return sql;
-    }
-    private String renderPrompt(String question, DbSchema schema, List<String> chatContext) {
-        String schemaText = schema.tables().stream()
-                .map(this::formatTable)
-                .collect(Collectors.joining("\n"));
-
-        String ctxBlock = (chatContext == null || chatContext.isEmpty())
-                ? ""
-                : ("Conversation context:\n" + String.join("\n", chatContext) + "\n");
-
-        String template = promptLoader.getSqlGeneratorTemplate();
-        template = template
-                .replace("{{SCHEMA}}", schemaText)
-                .replace("{{CONTEXT}}", ctxBlock)
-                .replace("{{QUESTION}}", question);
-        log.error("Final prompt {}", template);
-        return template;
     }
 
     private String formatTable(TableSchema t) {

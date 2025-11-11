@@ -2,7 +2,6 @@ package com.darpan.databaseAiAgent.config;
 
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +28,7 @@ public class MemoryConfig {
 
     @Bean
     @Lazy
-    public ChatLanguageModel chatLanguageModel() {
+    public OpenAiChatModel chatLanguageModel() {
         String apiKey = Optional.ofNullable(openAiApiKey)
                 .filter(key -> !key.isEmpty())
                 .orElseThrow(() -> new IllegalStateException("OpenAI API key not found. Please set 'langchain4j.openai.api-key' in application.properties or 'OPENAI_API_KEY' environment variable."));

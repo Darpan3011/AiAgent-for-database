@@ -71,7 +71,7 @@ public class SessionAgentService {
     // Exact serialization used for LLM context
     private List<String> serializeMessages() {
         return chatMemory.messages().stream()
-                .map(m -> m.type() + ": " + m.text())
+                .map(Object::toString)
                 .collect(Collectors.toList());
     }
 

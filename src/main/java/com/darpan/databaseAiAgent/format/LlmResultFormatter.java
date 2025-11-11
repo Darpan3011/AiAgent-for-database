@@ -1,7 +1,7 @@
 package com.darpan.databaseAiAgent.format;
 
 import com.darpan.databaseAiAgent.api.QueryResult;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import com.darpan.databaseAiAgent.llm.ResultSummarizer;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -11,10 +11,10 @@ import java.util.stream.Collectors;
 @Component
 public class LlmResultFormatter {
 
-    private final ChatLanguageModel model;
+    private final ResultSummarizer summarizer;
 
-    public LlmResultFormatter(ChatLanguageModel model) {
-        this.model = model;
+    public LlmResultFormatter(ResultSummarizer summarizer) {
+        this.summarizer = summarizer;
     }
 
     public String format(String question, String sql, QueryResult result) {
@@ -34,15 +34,13 @@ public class LlmResultFormatter {
                         .collect(Collectors.joining(" | ")))
                 .collect(Collectors.joining("\n"));
 
-        String prompt = "You are a data analyst. Summarize the query result succinctly in 1-2 sentences, directly answering the question.\n" +
-                "Question: " + question + "\n" +
+        String prompt = "Question: " + question + "\n" +
                 "SQL: " + sql + "\n" +
                 "Preview (" + previewRows.size() + " rows shown):\n" +
-                header + "\n" + body + "\n" +
-                "Answer succinctly without adding extra context.";
+                header + "\n" + body;
 
         try {
-            return model.generate(prompt).trim();
+            return summarizer.summarize(prompt).trim();
         } catch (Exception e) {
             return "Found " + result.rows().size() + " rows. Showing first few: \n" + header + "\n" + body;
         }

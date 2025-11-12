@@ -64,6 +64,9 @@ public class SessionAgentService {
         // Format natural-language answer
         String answer = resultFormatter.format(question, sql, rows);
 
+        // Store last successful SQL in memory for precise follow-ups
+        chatMemory.add(dev.langchain4j.data.message.AiMessage.from("SQL: " + sql));
+
         // Return structured response
         return AgentResponse.ok(answer, sql, rows);
     }

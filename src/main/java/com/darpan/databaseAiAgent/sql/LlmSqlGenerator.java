@@ -3,6 +3,7 @@ package com.darpan.databaseAiAgent.sql;
 import com.darpan.databaseAiAgent.api.DbSchema;
 import com.darpan.databaseAiAgent.api.TableSchema;
 import com.darpan.databaseAiAgent.llm.SqlAssistant;
+import com.darpan.databaseAiAgent.prompt.PromptService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.SessionScope;
@@ -15,9 +16,11 @@ import java.util.stream.Collectors;
 public class LlmSqlGenerator {
 
     private final SqlAssistant assistant;
+    private final PromptService promptService;
 
-    public LlmSqlGenerator(SqlAssistant assistant) {
+	public LlmSqlGenerator(SqlAssistant assistant, PromptService promptService) {
         this.assistant = assistant;
+        this.promptService = promptService;
     }
 
     public String generateSql(String question, DbSchema schema) {
@@ -25,7 +28,13 @@ public class LlmSqlGenerator {
                 .map(this::formatTable)
                 .collect(Collectors.joining("\n"));
 
-        String sql = assistant.answer(schemaText, question).trim();
+        String rules = promptService != null ? promptService.getSqlAssistantRules() : "You are a helpful data analyst.\nGenerate a single ANSI SQL SELECT statement to answer the user's question.\nRules:\n- ONLY output SQL, no explanation.\n- Use only the tables and columns from the provided schema.\n- Do NOT perform INSERT/UPDATE/DELETE/DDL. SELECT only.";
+        String version = promptService != null ? promptService.getSqlAssistantRulesVersion() : "unknown";
+        if (log.isDebugEnabled()) {
+            log.debug("Using SQL assistant rules version {}", version);
+        }
+
+        String sql = assistant.answer(rules, schemaText, question).trim();
         if (sql.startsWith("```")) {
             sql = sql.replaceAll("```[a-zA-Z]*", "").replace("```", "").trim();
         }

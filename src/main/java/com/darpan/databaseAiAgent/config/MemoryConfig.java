@@ -2,6 +2,8 @@ package com.darpan.databaseAiAgent.config;
 
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,11 +16,20 @@ import java.util.Optional;
 @Configuration
 public class MemoryConfig {
 
-    @Value("${langchain4j.openai.api-key:}")
+    @Value("${langchain4j.openai.api-key:thisisthedummykey}")
     private String openAiApiKey;
 
     @Value("${langchain4j.openai.chat-model.model-name:gpt-4o}")
     private String modelName;
+
+    @Value("${ai.db.agent.model-provider:openai}")
+    private String modelProvider;
+
+    @Value("${langchain4j.ollama.base-url:http://localhost:11434}")
+    private String ollamaBaseUrl;
+
+    @Value("${langchain4j.ollama.chat-model.model-name:llama3.2}")
+    private String ollamaModelName;
 
     @Bean
     @SessionScope
@@ -28,7 +39,26 @@ public class MemoryConfig {
 
     @Bean
     @Lazy
-    public OpenAiChatModel chatLanguageModel() {
+    public ChatModel chatLanguageModel() {
+        String provider = Optional.ofNullable(modelProvider)
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .filter(s -> !s.isEmpty())
+                .orElse("openai");
+
+        if ("ollama".equals(provider)) {
+            return createOllamaChatModel();
+        }
+
+        if ("openai".equals(provider)) {
+            return createOpenAiChatModel();
+        }
+
+        throw new IllegalStateException(
+                "Unsupported AI provider '%s'. Supported values are 'openai' or 'ollama'.".formatted(modelProvider));
+    }
+
+    private ChatModel createOpenAiChatModel() {
         String apiKey = Optional.ofNullable(openAiApiKey)
                 .filter(key -> !key.isEmpty())
                 .orElseThrow(() -> new IllegalStateException("OpenAI API key not found. Please set 'langchain4j.openai.api-key' in application.properties or 'OPENAI_API_KEY' environment variable."));
@@ -36,6 +66,13 @@ public class MemoryConfig {
         return OpenAiChatModel.builder()
                 .apiKey(apiKey)
                 .modelName(modelName)
+                .build();
+    }
+
+    private ChatModel createOllamaChatModel() {
+        return OllamaChatModel.builder()
+                .baseUrl(ollamaBaseUrl)
+                .modelName(ollamaModelName)
                 .build();
     }
 }

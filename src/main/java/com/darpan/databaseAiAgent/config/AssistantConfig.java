@@ -3,7 +3,7 @@ package com.darpan.databaseAiAgent.config;
 import com.darpan.databaseAiAgent.llm.SqlAssistant;
 import com.darpan.databaseAiAgent.llm.ResultSummarizer;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +14,7 @@ public class AssistantConfig {
 
 	@Bean
 	@SessionScope
-	public SqlAssistant sqlAssistant(OpenAiChatModel model, ChatMemory chatMemory) {
+	public SqlAssistant sqlAssistant(ChatModel model, ChatMemory chatMemory) {
 		return AiServices.builder(SqlAssistant.class)
 				.chatModel(model)
 				.chatMemory(chatMemory)
@@ -23,7 +23,7 @@ public class AssistantConfig {
 
 	@Bean
 	@SessionScope
-	public ResultSummarizer resultSummarizer(OpenAiChatModel model, ChatMemory chatMemory) {
+	public ResultSummarizer resultSummarizer(ChatModel model, ChatMemory chatMemory) {
 		return AiServices.builder(ResultSummarizer.class)
 				.chatModel(model)
 				.chatMemory(chatMemory)

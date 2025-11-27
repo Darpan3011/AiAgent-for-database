@@ -82,4 +82,8 @@ public class SessionAgentService {
     public List<String> getChatHistory() {
         return serializeMessages();
     }
+
+    public void clearContext() {
+        chatMemory.clear();
+    }
 }

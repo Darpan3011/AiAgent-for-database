@@ -7,7 +7,7 @@
 ## What this module does
 
 - Accepts natural-language questions about a database.
-- Uses a configurable LLM (OpenAI or Ollama via langchain4j) to generate SQL queries.
+- Uses a configurable LLM (OpenAI, Ollama, or Gemini via langchain4j) to generate SQL queries.
 - Validates SQL with JSQLParser-based validator and only allows `SELECT` queries.
 - Executes queries using `JdbcTemplate` and returns structured `QueryResult` plus a natural language answer.
 - Keeps a per-HTTP-session conversation memory so follow-ups and clarifications are possible.
@@ -84,6 +84,10 @@ langchain4j.openai.chat-model.model-name=gpt-4o
 #langchain4j.ollama.base-url=http://localhost:11434
 #langchain4j.ollama.chat-model.model-name=llama3.2:latest
 
+# Gemini (if you choose provider=gemini)
+#langchain4j.google-ai-gemini.api-key=your-gemini-api-key
+#langchain4j.google-ai-gemini.chat-model.model-name=gemini-2.0-flash-001
+
 # Standard Spring datasource (example)
 spring.datasource.url=jdbc:postgresql://db-host:5432/yourdb
 spring.datasource.username=dbuser
@@ -108,15 +112,20 @@ import com.darpan.databaseAiAgent.api.AgentResponse;
 @RestController
 @RequestMapping("/ai")
 public class MyAiController {
-    private final SessionAgentService agent;
+    private final SessionAgentService agentService;
 
-    public MyAiController(SessionAgentService agent) {
-        this.agent = agent;
+    public MyAiController(SessionAgentService agentService) {
+        this.agentService = agentService;
     }
 
     @GetMapping("/ask")
     public AgentResponse ask(@RequestParam String q) {
-        return agent.ask(q); // returns structured AgentResponse (answer, sql, rows)
+        return agentService.ask(q); // returns structured AgentResponse (answer, sql, rows)
+    }
+
+    @DeleteMapping("/context")
+    public void clear() {
+        agentService.clearContext(); // Clears session memory
     }
 }
 ```
@@ -129,7 +138,7 @@ public class MyAiController {
 - The module **only allows SELECT** queries. `SafeJdbcExecutor` enforces this and throws `IllegalArgumentException` if non-`SELECT` queries are attempted.
 - The SQL validator uses JSQLParser to parse and (basic) validate SQL before executing.
 - The module stores conversation context in session-scoped memory (so that follow-up questions are possible). If your app uses stateless sessions, memory will be lost across requests.
-- The module uses `langchain4j` model wrappers; the active provider must be configured (OpenAI or Ollama).
+- The module uses `langchain4j` model wrappers; the active provider must be configured (OpenAI, Ollama, or Gemini).
 
 
 ## Configurable / override points
@@ -209,8 +218,14 @@ spring.datasource.username=dbuser
 spring.datasource.password=secret
 spring.datasource.driver-class-name=org.postgresql.Driver
 
+# Example: Using OpenAI
 langchain4j.openai.api-key=${OPENAI_API_KEY}
 langchain4j.openai.chat-model.model-name=gpt-4o
+
+# Example: Using Gemini (uncomment and set provider)
+#ai.db.agent.model-provider=gemini
+#langchain4j.google-ai-gemini.api-key=${GEMINI_API_KEY}
+#langchain4j.google-ai-gemini.chat-model.model-name=gemini-2.0-flash-001
 
 spring.application.name=databaseAiAgent
 ```

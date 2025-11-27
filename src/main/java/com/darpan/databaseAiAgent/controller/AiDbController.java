@@ -34,4 +34,10 @@ public class AiDbController {
     public ResponseEntity<?> getContext() {
         return ResponseEntity.ok(Map.of("messages", agentService.getChatHistory()));
     }
+
+    @DeleteMapping("/context")
+    public ResponseEntity<?> clearContext() {
+        agentService.clearContext();
+        return ResponseEntity.ok(Map.of("message", "Context cleared"));
+    }
 }

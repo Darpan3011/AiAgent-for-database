@@ -3,6 +3,7 @@ package com.darpan.databaseAiAgent.config;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +32,12 @@ public class MemoryConfig {
     @Value("${langchain4j.ollama.chat-model.model-name:llama3.2}")
     private String ollamaModelName;
 
+    @Value("${langchain4j.google-ai-gemini.api-key:}")
+    private String geminiApiKey;
+
+    @Value("${langchain4j.google-ai-gemini.chat-model.model-name:gemini-2.0-flash-001}")
+    private String geminiModelName;
+
     @Bean
     @SessionScope
     public ChatMemory chatMemory(@Value("${ai.db.agent.memory.max-messages:30}") int maxMessages) {
@@ -54,8 +61,12 @@ public class MemoryConfig {
             return createOpenAiChatModel();
         }
 
+        if ("gemini".equals(provider)) {
+            return createGeminiChatModel();
+        }
+
         throw new IllegalStateException(
-                "Unsupported AI provider '%s'. Supported values are 'openai' or 'ollama'.".formatted(modelProvider));
+                "Unsupported AI provider '%s'. Supported values are 'openai', 'ollama', or 'gemini'.".formatted(modelProvider));
     }
 
     private ChatModel createOpenAiChatModel() {
@@ -73,6 +84,17 @@ public class MemoryConfig {
         return OllamaChatModel.builder()
                 .baseUrl(ollamaBaseUrl)
                 .modelName(ollamaModelName)
+                .build();
+    }
+
+    private ChatModel createGeminiChatModel() {
+        String apiKey = Optional.ofNullable(geminiApiKey)
+                .filter(key -> !key.isEmpty())
+                .orElseThrow(() -> new IllegalStateException("Gemini API key not found. Please set 'langchain4j.google-ai-gemini.api-key' in application.properties or environment variable."));
+
+        return GoogleAiGeminiChatModel.builder()
+                .apiKey(apiKey)
+                .modelName(geminiModelName)
                 .build();
     }
 }

@@ -83,6 +83,12 @@
             <scope>compile</scope>
         </dependency>
 
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-google-ai-gemini</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+
         <!-- JDK HTTP client (runtime) -->
         <dependency>
             <groupId>dev.langchain4j</groupId>

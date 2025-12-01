@@ -75,9 +75,14 @@ public class LlmSqlGenerator {
             throw new IllegalArgumentException("Cleaned SQL does not start with SELECT");
         }
 
+        // Normalize whitespace: collapse all consecutive whitespace (including newlines) into single spaces
+        // This helps JSqlParser handle multi-line SQL that some LLMs may generate
+        String normalized = cleaned.replaceAll("\\s+", " ").trim();
+        log.error("SQL after whitespace normalization: {}", normalized);
+
         // Validate with JSqlParser (append semicolon for parsing)
         try {
-            Statement stmt = CCJSqlParserUtil.parse(cleaned + ";");
+            Statement stmt = CCJSqlParserUtil.parse(normalized + ";");
             if (!(stmt instanceof Select)) {
                 log.error("Parsed statement is not a SELECT: {}", stmt.getClass().getSimpleName());
                 throw new IllegalArgumentException("Generated SQL is not a SELECT statement");
@@ -90,8 +95,8 @@ public class LlmSqlGenerator {
             }
         }
 
-        log.error("SQL after cleaning: {}", cleaned.replaceAll("\\r?\\n", "\\\\n"));
-        return cleaned;
+        log.error("SQL after cleaning: {}", normalized.replaceAll("\\r?\\n", "\\\\n"));
+        return normalized;
     }
 
     /**
@@ -127,9 +132,9 @@ public class LlmSqlGenerator {
         s = INVISIBLE_CHARS.matcher(s).replaceAll("");
         log.error("After removing invisible chars (escaped) {}", s.replaceAll("\\r?\\n", "\\\\n"));
 
-        // 3) Remove any remaining inline backticks
-        s = s.replace("`", "");
-        log.error("After removing inline backticks (escaped) {}", s.replaceAll("\\r?\\n", "\\\\n"));
+        // 3) Keep backticks for MySQL identifier quoting - do NOT remove them
+        // s = s.replace("`", "");  // COMMENTED OUT - backticks are needed for MySQL
+        log.error("After backtick processing (escaped) {}", s.replaceAll("\\r?\\n", "\\\\n"));
 
         // 4) Try to extract the first SELECT block (up to semicolon or end)
         Matcher mSelect = SELECT_BLOCK.matcher(s);
@@ -158,16 +163,19 @@ public class LlmSqlGenerator {
 
     private String formatTable(TableSchema t) {
         String cols = t.columns().stream()
-                .map(c -> c.name() + " " + c.type())
+                .map(c -> "`" + c.name() + "` " + c.type())
                 .collect(Collectors.joining(", "));
         StringBuilder sb = new StringBuilder();
-        sb.append("- ").append(t.name()).append("(").append(cols).append(")");
+        sb.append("- `").append(t.name()).append("`(").append(cols).append(")");
         if (t.primaryKeys() != null && !t.primaryKeys().isEmpty()) {
-            sb.append("\n  PK(").append(String.join(", ", t.primaryKeys())).append(")");
+            String quotedPKs = t.primaryKeys().stream()
+                    .map(pk -> "`" + pk + "`")
+                    .collect(Collectors.joining(", "));
+            sb.append("\n  PK(").append(quotedPKs).append(")");
         }
         if (t.foreignKeys() != null && !t.foreignKeys().isEmpty()) {
             String fkText = t.foreignKeys().stream()
-                    .map(f -> f.fromColumn() + " -> " + f.toTable() + "." + f.toColumn())
+                    .map(f -> "`" + f.fromColumn() + "` -> `" + f.toTable() + "`.`" + f.toColumn() + "`")
                     .collect(Collectors.joining(", "));
             sb.append("\n  FK(").append(fkText).append(")");
         }

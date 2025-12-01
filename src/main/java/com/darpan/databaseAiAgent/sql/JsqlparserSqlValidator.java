@@ -40,7 +40,8 @@ public class JsqlparserSqlValidator {
             List<String> used = tablesNamesFinder.getTableList((Statement) select);
             Set<String> missing = new HashSet<>();
             for (String t : used) {
-                String norm = t == null ? null : t.replaceAll("^[a-zA-Z0-9_]+\\.", "").toLowerCase();
+                // Strip backticks, schema prefix, then lowercase for comparison
+                String norm = t == null ? null : t.replace("`", "").replaceAll("^[a-zA-Z0-9_]+\\.", "").toLowerCase();
                 if (norm != null && !allowedTables.contains(norm)) {
                     missing.add(t);
                 }
@@ -76,7 +77,8 @@ public class JsqlparserSqlValidator {
             // 2) Single-table simple SELECT: validate unqualified columns against that table
             if (used != null && used.size() == 1) {
                 String soleTable = used.get(0);
-                String base = soleTable == null ? null : soleTable.replaceAll("^[a-zA-Z0-9_]+\\.", "").toLowerCase();
+                // Strip backticks, schema prefix, then lowercase for comparison
+                String base = soleTable == null ? null : soleTable.replace("`", "").replaceAll("^[a-zA-Z0-9_]+\\.", "").toLowerCase();
                 Set<String> cols = base == null ? null : tableToColumns.get(base);
                 if (cols != null) {
                     String upperSql = sql.toUpperCase();

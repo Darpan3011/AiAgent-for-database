@@ -11,13 +11,10 @@ import java.util.stream.Collectors;
 @Component
 public class LlmResultFormatter {
 
-    private final ResultSummarizer summarizer;
-
-    public LlmResultFormatter(ResultSummarizer summarizer) {
-        this.summarizer = summarizer;
+    public LlmResultFormatter() {
     }
 
-    public String format(String question, String sql, QueryResult result) {
+    public String format(String question, String sql, QueryResult result, ResultSummarizer summarizer) {
         if (result == null || result.rows() == null || result.rows().isEmpty()) {
             return "I didn't find any matching rows for: " + question;
         }

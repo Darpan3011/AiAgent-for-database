@@ -25,15 +25,13 @@ public class LlmSqlGenerator {
     private static final Pattern INVISIBLE_CHARS = Pattern.compile("[\\uFEFF\\u200B-\\u200F\\u00A0]");
     private static final Pattern SELECT_BLOCK = Pattern.compile("(?is).*?(SELECT\\b[\\s\\S]*?)(;|$)");
 
-    private final SqlAssistant assistant;
     private final PromptService promptService;
 
-	public LlmSqlGenerator(SqlAssistant assistant, PromptService promptService) {
-        this.assistant = assistant;
+	public LlmSqlGenerator(PromptService promptService) {
         this.promptService = promptService;
     }
 
-    public String generateSql(String question, DbSchema schema) {
+    public String generateSql(String question, DbSchema schema, SqlAssistant assistant) {
         String schemaText = schema.tables().stream()
                 .map(this::formatTable)
                 .collect(Collectors.joining("\n"));

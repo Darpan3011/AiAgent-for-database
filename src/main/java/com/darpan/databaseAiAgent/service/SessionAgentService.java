@@ -9,7 +9,12 @@ import com.darpan.databaseAiAgent.schema.JdbcSchemaLoader;
 import com.darpan.databaseAiAgent.sql.JsqlparserSqlValidator;
 import com.darpan.databaseAiAgent.sql.LlmSqlGenerator;
 import com.darpan.databaseAiAgent.sql.SafeJdbcExecutor;
+import com.darpan.databaseAiAgent.llm.ResultSummarizer;
+import com.darpan.databaseAiAgent.llm.SqlAssistant;
+import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.service.AiServices;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.SessionScope;
 
@@ -20,25 +25,35 @@ import java.util.stream.Collectors;
 @SessionScope
 public class SessionAgentService {
 
-    private final ChatMemory chatMemory;         // session-scoped memory
+    private final ChatMemory chatMemory;
     private final JdbcSchemaLoader schemaLoader;
     private final LlmSqlGenerator sqlGenerator;
     private final JsqlparserSqlValidator sqlValidator;
     private final SafeJdbcExecutor sqlExecutor;
     private final LlmResultFormatter resultFormatter;
+    
+    private final ModelFactory modelFactory;
+    private final SqlAssistant defaultAssistant;
+    private final ResultSummarizer defaultSummarizer;
 
     public SessionAgentService(ChatMemory chatMemory,
                                JdbcSchemaLoader schemaLoader,
                                LlmSqlGenerator sqlGenerator,
                                JsqlparserSqlValidator sqlValidator,
                                SafeJdbcExecutor sqlExecutor,
-                               LlmResultFormatter resultFormatter) {
+                               LlmResultFormatter resultFormatter,
+                               ModelFactory modelFactory,
+                               SqlAssistant defaultAssistant,
+                               ResultSummarizer defaultSummarizer) {
         this.chatMemory = chatMemory;
         this.schemaLoader = schemaLoader;
         this.sqlGenerator = sqlGenerator;
         this.sqlValidator = sqlValidator;
         this.sqlExecutor = sqlExecutor;
         this.resultFormatter = resultFormatter;
+        this.modelFactory = modelFactory;
+        this.defaultAssistant = defaultAssistant;
+        this.defaultSummarizer = defaultSummarizer;
     }
 
     /**
@@ -46,11 +61,30 @@ public class SessionAgentService {
      * into the session ChatMemory so that old context is available for subsequent turns.
      */
     public AgentResponse ask(String question) {
+        return ask(question, null);
+    }
+
+    public AgentResponse ask(String question, String modelName) {
+        // Resolve assistant and summarizer
+        SqlAssistant assistant = defaultAssistant;
+        ResultSummarizer summarizer = defaultSummarizer;
+
+        if (modelName != null && !modelName.isEmpty()) {
+            ChatModel model = modelFactory.createChatModel(modelName);
+            assistant = AiServices.builder(SqlAssistant.class)
+                    .chatModel(model)
+                    .chatMemory(chatMemory)
+                    .build();
+            summarizer = AiServices.builder(ResultSummarizer.class)
+                    .chatModel(model)
+                    .build();
+        }
+
         // Load schema
         DbSchema schema = schemaLoader.loadSchema();
 
         // Generate SQL
-        String sql = sqlGenerator.generateSql(question, schema);
+        String sql = sqlGenerator.generateSql(question, schema, assistant);
 
         // Validate
         ValidationResult vr = sqlValidator.validate(sql, schema);
@@ -62,10 +96,8 @@ public class SessionAgentService {
         QueryResult rows = sqlExecutor.execute(sql);
 
         // Format natural-language answer
-        String answer = resultFormatter.format(question, sql, rows);
+        String answer = resultFormatter.format(question, sql, rows, summarizer);
 
-        // Store last successful SQL in memory for precise follow-ups
-        chatMemory.add(dev.langchain4j.data.message.AiMessage.from("SQL: " + sql));
 
         // Return structured response
         return AgentResponse.ok(answer, sql, rows);
@@ -74,6 +106,7 @@ public class SessionAgentService {
     // Exact serialization used for LLM context
     private List<String> serializeMessages() {
         return chatMemory.messages().stream()
+                .filter(msg -> !(msg instanceof SystemMessage))
                 .map(Object::toString)
                 .collect(Collectors.toList());
     }

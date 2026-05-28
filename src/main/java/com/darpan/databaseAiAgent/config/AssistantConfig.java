@@ -23,10 +23,9 @@ public class AssistantConfig {
 
 	@Bean
 	@SessionScope
-	public ResultSummarizer resultSummarizer(ChatModel model, ChatMemory chatMemory) {
+	public ResultSummarizer resultSummarizer(ChatModel model) {
 		return AiServices.builder(ResultSummarizer.class)
 				.chatModel(model)
-				.chatMemory(chatMemory)
 				.build();
 	}
 }
